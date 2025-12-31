@@ -1,131 +1,164 @@
 package com.example.vpndnstest
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.net.VpnService
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.Request
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val VPN_REQUEST_CODE = 100
     }
 
-    private lateinit var btnStartVpn: Button
     private lateinit var indicatorStatus: View
     private lateinit var txtStatus: TextView
-
-    private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val status = intent?.getStringExtra("status") ?: return
-            val dns = intent.getStringExtra("dns") ?: ""
-            
-            updateUI(status == "RUNNING", dns)
-        }
-    }
+    private lateinit var btnTestDns: Button
+    private lateinit var btnTestHttp: Button
+    private lateinit var txtLogs: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         // Initialize views
-        btnStartVpn = findViewById(R.id.btnStartVpn)
         indicatorStatus = findViewById(R.id.indicatorStatus)
         txtStatus = findViewById(R.id.txtStatus)
+        btnTestDns = findViewById(R.id.btnTestDns)
+        btnTestHttp = findViewById(R.id.btnTestHttp)
+        txtLogs = findViewById(R.id.txtLogs)
 
-        // Button click handler
-        btnStartVpn.setOnClickListener {
-            if (VpnDnsService.isVpnRunning()) {
-                stopVpnService()
-            } else {
-                requestVpnPermission()
+        // Button handlers
+        btnTestDns.setOnClickListener {
+            testDnsConnection()
+        }
+
+        btnTestHttp.setOnClickListener {
+            testHttpRequest()
+        }
+
+        // Initial UI
+        updateUI(false, "Ready to test")
+    }
+
+    /**
+     * Test DNS server connectivity
+     */
+    private fun testDnsConnection() {
+        updateUI(false, "Testing DNS server...")
+        appendLog("Testing DNS: 156.154.70.1...")
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val success = OkHttpClientHelper.testDnsConnection()
+
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        updateUI(true, "DNS Server: OK")
+                        appendLog("✓ DNS server reachable!")
+                    } else {
+                        updateUI(false, "DNS Server: FAILED")
+                        appendLog("✗ DNS server unreachable")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    updateUI(false, "DNS Test Error")
+                    appendLog("✗ Error: ${e.message}")
+                }
             }
         }
-
-        // Register broadcast receiver
-        val filter = IntentFilter("VPN_DNS_STATUS")
-        registerReceiver(statusReceiver, filter, RECEIVER_NOT_EXPORTED)
-
-        // Update UI berdasarkan status
-        updateUI(VpnDnsService.isVpnRunning(), "156.154.70.1")
     }
 
-    private fun requestVpnPermission() {
-        val intent = VpnService.prepare(this)
-        if (intent != null) {
-            // Need permission - show system dialog
-            Log.d(TAG, "Requesting VPN permission")
-            startActivityForResult(intent, VPN_REQUEST_CODE)
-        } else {
-            // Already have permission
-            Log.d(TAG, "VPN permission already granted")
-            startVpnService()
-        }
-    }
+    /**
+     * Test HTTP request dengan custom DNS
+     */
+    private fun testHttpRequest() {
+        updateUI(false, "Testing HTTP request...")
+        appendLog("Making HTTP request via custom DNS...")
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        if (requestCode == VPN_REQUEST_CODE) {
-            if (resultCode == RESULT_OK) {
-                Log.d(TAG, "VPN permission granted")
-                startVpnService()
-            } else {
-                Log.d(TAG, "VPN permission denied")
-                updateUI(false, "")
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClientHelper.getClient()
+                
+                // Test request ke Google
+                val request = Request.Builder()
+                    .url("https://www.google.com")
+                    .build()
+
+                val startTime = System.currentTimeMillis()
+                val response = client.newCall(request).execute()
+                val duration = System.currentTimeMillis() - startTime
+
+                val success = response.isSuccessful
+                val code = response.code
+
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        updateUI(true, "HTTP: OK (${duration}ms)")
+                        appendLog("✓ HTTP request successful!")
+                        appendLog("  Code: $code")
+                        appendLog("  Duration: ${duration}ms")
+                        
+                        // Show stats
+                        val stats = OkHttpClientHelper.getStats()
+                        appendLog("\n$stats")
+                    } else {
+                        updateUI(false, "HTTP: FAILED")
+                        appendLog("✗ HTTP request failed (code: $code)")
+                    }
+                }
+
+                response.close()
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    updateUI(false, "HTTP Error")
+                    appendLog("✗ Error: ${e.message}")
+                }
             }
         }
     }
 
-    private fun startVpnService() {
-        val intent = Intent(this, VpnDnsService::class.java).apply {
-            action = VpnDnsService.ACTION_START_VPN
-        }
-        ContextCompat.startForegroundService(this, intent)
-        Log.d(TAG, "VPN service start command sent")
-    }
-
-    private fun stopVpnService() {
-        val intent = Intent(this, VpnDnsService::class.java).apply {
-            action = VpnDnsService.ACTION_STOP_VPN
-        }
-        startService(intent)
-        Log.d(TAG, "VPN service stop command sent")
-    }
-
-    private fun updateUI(isRunning: Boolean, dns: String) {
+    /**
+     * Update UI indicator and status
+     */
+    private fun updateUI(success: Boolean, status: String) {
         runOnUiThread {
-            if (isRunning) {
-                // VPN ON - Green indicator
+            if (success) {
                 indicatorStatus.setBackgroundColor(getColor(android.R.color.holo_green_light))
-                txtStatus.text = "VPN: ON | DNS: $dns"
-                btnStartVpn.text = "Stop VPN"
-                btnStartVpn.setBackgroundColor(getColor(android.R.color.holo_red_light))
             } else {
-                // VPN OFF - Red indicator
-                indicatorStatus.setBackgroundColor(getColor(android.R.color.holo_red_light))
-                txtStatus.text = "VPN: OFF | DNS: -"
-                btnStartVpn.text = "Start VPN DNS"
-                btnStartVpn.setBackgroundColor(getColor(android.R.color.holo_green_light))
+                indicatorStatus.setBackgroundColor(getColor(android.R.color.holo_orange_light))
             }
+            txtStatus.text = status
         }
     }
 
-    override fun onDestroy() {
-        try {
-            unregisterReceiver(statusReceiver)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receiver: ${e.message}")
+    /**
+     * Append log message
+     */
+    private fun appendLog(message: String) {
+        runOnUiThread {
+            val current = txtLogs.text.toString()
+            val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            
+            txtLogs.text = "$current\n[$timestamp] $message"
+            
+            // Auto scroll to bottom
+            txtLogs.post {
+                val scrollAmount = txtLogs.layout?.getLineTop(txtLogs.lineCount) ?: 0
+                if (scrollAmount > txtLogs.height) {
+                    txtLogs.scrollTo(0, scrollAmount - txtLogs.height)
+                }
+            }
         }
-        super.onDestroy()
     }
 }
