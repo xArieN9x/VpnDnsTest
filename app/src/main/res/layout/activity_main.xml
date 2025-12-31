@@ -3,17 +3,18 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
-    android:padding="32dp"
+    android:padding="16dp"
     android:background="#FFFFFF">
 
-    <!-- Status Indicator (LED) -->
+    <!-- Status Indicator -->
     <View
         android:id="@+id/indicatorStatus"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:background="@android:color/holo_red_light"
-        android:layout_marginBottom="32dp"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@android:color/holo_orange_light"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="16dp"
         android:elevation="4dp" />
 
     <!-- Status Text -->
@@ -21,31 +22,72 @@
         android:id="@+id/txtStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="VPN: OFF | DNS: -"
-        android:textSize="18sp"
+        android:text="Ready to test"
+        android:textSize="16sp"
         android:textColor="#333333"
         android:textStyle="bold"
-        android:layout_marginBottom="48dp" />
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="32dp" />
 
-    <!-- Start/Stop Button -->
-    <Button
-        android:id="@+id/btnStartVpn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Start VPN DNS"
-        android:textSize="18sp"
-        android:textColor="#FFFFFF"
-        android:background="@android:color/holo_green_light"
-        android:padding="16dp"
-        android:elevation="4dp" />
-
-    <!-- Info Text -->
+    <!-- DNS Info -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="DNS Server: 156.154.70.1"
+        android:text="Custom DNS: 156.154.70.1"
         android:textSize="14sp"
         android:textColor="#666666"
-        android:layout_marginTop="24dp" />
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Test DNS Button -->
+    <Button
+        android:id="@+id/btnTestDns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Test DNS Server"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:background="@android:color/holo_blue_light"
+        android:padding="16dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Test HTTP Button -->
+    <Button
+        android:id="@+id/btnTestHttp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Test HTTP Request"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:background="@android:color/holo_green_light"
+        android:padding="16dp"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Logs Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Logs:"
+        android:textSize="12sp"
+        android:textColor="#999999"
+        android:layout_marginBottom="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#F5F5F5"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/txtLogs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ready..."
+            android:textSize="11sp"
+            android:textColor="#333333"
+            android:fontFamily="monospace" />
+
+    </ScrollView>
 
 </LinearLayout>
